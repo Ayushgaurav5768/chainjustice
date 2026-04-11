@@ -11,8 +11,8 @@ import {
   WalletModalProvider,
 } from '@solana/wallet-adapter-react-ui';
 import {
-  BackpackWalletAdapter,
   PhantomWalletAdapter,
+  SolflareWalletAdapter,
 } from '@solana/wallet-adapter-wallets';
 import { appConfig, resolveRpcEndpoint } from '@/lib/config';
 
@@ -39,7 +39,12 @@ export function Providers({ children }: { children: ReactNode }) {
   );
 
   const wallets = useMemo(
-    () => [new PhantomWalletAdapter(), new BackpackWalletAdapter()],
+    () => [
+      new PhantomWalletAdapter(),
+      new SolflareWalletAdapter(),
+      // Backpack is supported via the Solana Wallet Standard in wallet-adapter-react,
+      // so it should be detected automatically when the extension is installed.
+    ],
     []
   );
 
