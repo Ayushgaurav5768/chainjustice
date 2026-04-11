@@ -1,0 +1,10 @@
+{
+  "rust-analyzer.rustup.toolchain": "1.94.1",
+  "rust-analyzer.cargo.targetDir": true,
+  "rust-analyzer.cargo.extraEnv": {
+    "RUSTUP_TOOLCHAIN": "1.94.1"
+  },
+  "rust-analyzer.check.extraEnv": {
+    "RUSTUP_TOOLCHAIN": "1.94.1"
+  }
+}
