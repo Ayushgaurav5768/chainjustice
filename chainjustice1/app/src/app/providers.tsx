@@ -11,9 +11,10 @@ import {
   WalletModalProvider,
 } from '@solana/wallet-adapter-react-ui';
 import {
+  BackpackWalletAdapter,
   PhantomWalletAdapter,
-  SolflareWalletAdapter,
 } from '@solana/wallet-adapter-wallets';
+import { appConfig, resolveRpcEndpoint } from '@/lib/config';
 
 import '@solana/wallet-adapter-react-ui/styles.css';
 
@@ -25,15 +26,20 @@ const TypedWalletModalProvider =
   WalletModalProvider as unknown as ComponentType<{ children?: ReactNode }>;
 
 export function Providers({ children }: { children: ReactNode }) {
-  const network = WalletAdapterNetwork.Devnet;
+  const network =
+    appConfig.solanaNetwork === 'mainnet-beta'
+      ? WalletAdapterNetwork.Mainnet
+      : appConfig.solanaNetwork === 'testnet'
+        ? WalletAdapterNetwork.Testnet
+        : WalletAdapterNetwork.Devnet;
 
   const endpoint = useMemo(
-    () => process.env.NEXT_PUBLIC_SOLANA_RPC_URL || clusterApiUrl(network),
+    () => resolveRpcEndpoint() || clusterApiUrl(network),
     [network]
   );
 
   const wallets = useMemo(
-    () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
+    () => [new PhantomWalletAdapter(), new BackpackWalletAdapter()],
     []
   );
 

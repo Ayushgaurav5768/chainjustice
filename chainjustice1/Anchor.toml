@@ -4,7 +4,7 @@
 resolution = true
 skip-lint = false
 
-[programs.Devnet]
+[programs.devnet]
 chainjustice = "G6UN14ZNB6TpXgohEzmaXBGmfwzpmgRPi4w7p4p39woC"
 
 [registry]

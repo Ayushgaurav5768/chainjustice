@@ -9,10 +9,10 @@ import { Scale, Menu, X } from "lucide-react"
 import { useState } from "react"
 
 const navLinks = [
-  { href: "/dashboard", label: "Dashboard" },
+  { href: "/verdict-ledger", label: "Accountability" },
   { href: "/registry", label: "Registry" },
   { href: "/juror", label: "Juror Portal" },
-  { href: "/cases/file", label: "File Case" },
+  { href: "/file-case", label: "File Case" },
   { href: "/precedents", label: "Precedents" },
 ]
 

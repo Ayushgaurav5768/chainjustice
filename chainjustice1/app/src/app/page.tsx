@@ -1,4 +1,7 @@
+"use client"
+
 import Link from "next/link"
+import { motion } from "framer-motion"
 import Button from "@/components/ui/button"
 import Navbar from "@/components/navbar"
 import GlassCard from "@/components/glass-card"
@@ -10,40 +13,40 @@ import {
   ArrowRight,
   ChevronRight,
   Database,
-  Brain,
-  Gavel,
+  FileCheck,
+  Blocks,
 } from "lucide-react"
 
 const stats = [
   { label: "Cases Filed", value: "2,847" },
-  { label: "Models Registered", value: "1,234" },
-  { label: "Total Staked", value: "$4.2M" },
+  { label: "Registered Models", value: "1,234" },
   { label: "Active Jurors", value: "892" },
+  { label: "Verdicts Anchored", value: "6,510" },
 ]
 
 const features = [
   {
     icon: Database,
     title: "Model Registry",
-    description: "AI models register with insurance deposits, creating accountability from day one.",
+    description: "Provider identities, insurance reserves, and trust score history are visible by default.",
     color: "cyan" as const,
-  },
-  {
-    icon: Brain,
-    title: "AI Legal Analysis",
-    description: "Gemini AI-powered legal analysis provides structured recommendations for every case.",
-    color: "violet" as const,
   },
   {
     icon: Users,
-    title: "Human Juror Network",
-    description: "Stake SOL to become a juror and earn rewards for fair, transparent verdicts.",
+    title: "Juror Governance",
+    description: "Staked jurors deliver final decisions independently. AI analysis is advisory-only by design.",
+    color: "violet" as const,
+  },
+  {
+    icon: FileCheck,
+    title: "Evidence Integrity via IPFS",
+    description: "Evidence files receive CID anchoring and gateway links for immutable public verification.",
     color: "cyan" as const,
   },
   {
-    icon: Gavel,
-    title: "On-Chain Verdicts",
-    description: "Final verdicts are immutable, updating model trust metrics permanently.",
+    icon: Blocks,
+    title: "Public Accountability via Solana",
+    description: "Verdict ledger entries and trust updates are durable, auditable, and ecosystem-visible.",
     color: "violet" as const,
   },
 ]
@@ -52,24 +55,31 @@ const howItWorks = [
   {
     step: "01",
     title: "File a Case",
-    description: "Submit evidence to IPFS and describe the AI misconduct with full transparency.",
+    description: "Submit complaint context and evidence. Every artifact is traceable.",
   },
   {
     step: "02",
-    title: "AI Analysis",
-    description: "Our Gemini AI legal engine analyzes evidence and provides structured recommendations.",
+    title: "AI Case Briefs",
+    description: "Prosecution, defense, and neutral synthesis briefs are generated as non-binding analysis.",
   },
   {
     step: "03",
     title: "Juror Voting",
-    description: "Staked jurors review the case and cast their votes on the blockchain.",
+    description: "Human jurors review evidence and vote independently of AI recommendations.",
   },
   {
     step: "04",
-    title: "Verdict & Resolution",
-    description: "Final verdict updates trust scores and triggers insurance payouts if applicable.",
+    title: "Verdict Ledger",
+    description: "Final outcomes, trust deltas, and insurance effects are recorded on-chain.",
   },
 ]
+
+const fadeUp = {
+  initial: { opacity: 0, y: 20 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, amount: 0.25 },
+  transition: { duration: 0.5 },
+}
 
 export default function LandingPage() {
   return (
@@ -92,13 +102,15 @@ export default function LandingPage() {
             </div>
 
             <h1 className="text-pretty text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-              The Decentralized Court for{" "}
-              <span className="text-cyan text-glow-cyan">AI Accountability</span>
+              ChainJustice
             </h1>
 
+            <p className="mt-4 text-2xl font-semibold tracking-tight text-cyan sm:text-3xl">
+              The Decentralized AI Accountability Court
+            </p>
+
             <p className="mt-6 text-pretty text-lg leading-relaxed text-muted-foreground sm:text-xl">
-              File cases against AI models, upload evidence to IPFS, receive AI-powered legal analysis,
-              and let human jurors deliver transparent, on-chain verdicts.
+              AI argues both sides. Humans decide. Blockchain remembers.
             </p>
 
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -108,7 +120,7 @@ export default function LandingPage() {
                 className="w-full bg-cyan text-primary-foreground hover:bg-cyan/90 glow-cyan sm:w-auto"
                 asChild
               >
-                <Link href="/cases/file">
+                <Link href="/file-case">
                   File a Case
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
@@ -128,9 +140,9 @@ export default function LandingPage() {
           </div>
 
           {/* Stats */}
-          <div className="mx-auto mt-20 grid max-w-4xl grid-cols-2 gap-4 sm:grid-cols-4">
+          <motion.div {...fadeUp} className="mx-auto mt-20 grid max-w-4xl grid-cols-2 gap-4 sm:grid-cols-4">
             {stats.map((stat, index) => (
-              <GlassCard 
+              <GlassCard
                 key={stat.label} 
                 className="p-4 text-center" 
                 hover
@@ -141,7 +153,7 @@ export default function LandingPage() {
                 <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{stat.label}</p>
               </GlassCard>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -157,7 +169,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <motion.div {...fadeUp} className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {features.map((feature) => (
               <GlassCard key={feature.title} className="p-6" hover intensity="normal" glow={feature.color}>
                 <div
@@ -175,7 +187,7 @@ export default function LandingPage() {
                 </p>
               </GlassCard>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -191,7 +203,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+          <motion.div {...fadeUp} className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
             {howItWorks.map((item, index) => (
               <div key={item.step} className="relative">
                 {index < howItWorks.length - 1 && (
@@ -204,7 +216,7 @@ export default function LandingPage() {
                 </p>
               </div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -218,11 +230,10 @@ export default function LandingPage() {
             <div className="relative mx-auto max-w-2xl text-center">
               <Scale className="mx-auto h-12 w-12 text-cyan" />
               <h2 className="mt-6 text-2xl font-bold tracking-tight sm:text-3xl">
-                Ready to Hold AI Accountable?
+                Build a Defensible AI Era
               </h2>
               <p className="mt-4 text-muted-foreground">
-                Join the decentralized movement for AI transparency and accountability. File a case,
-                register your model, or stake as a juror today.
+                Submit evidence, review adversarial AI briefs, and let jurors set the final record.
               </p>
               <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
                 <Button
@@ -230,8 +241,8 @@ export default function LandingPage() {
                   className="w-full bg-cyan text-primary-foreground hover:bg-cyan/90 sm:w-auto"
                   asChild
                 >
-                  <Link href="/dashboard">
-                    Launch Dashboard
+                  <Link href="/file-case">
+                    Start a Case
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
@@ -241,7 +252,7 @@ export default function LandingPage() {
                   className="w-full border-border hover:bg-secondary sm:w-auto"
                   asChild
                 >
-                  <Link href="/registry">View Registry</Link>
+                  <Link href="/precedents">Research Precedents</Link>
                 </Button>
               </div>
             </div>
@@ -265,14 +276,9 @@ export default function LandingPage() {
               <Link href="/registry" className="hover:text-foreground">
                 Registry
               </Link>
-              <a href="#" className="hover:text-foreground">
-                Docs
-              </a>
-              <a href="#" className="hover:text-foreground">
-                GitHub
-              </a>
+              <Link href="/juror" className="hover:text-foreground">Jurors</Link>
             </div>
-            <p className="text-sm text-muted-foreground">Built on Solana</p>
+            <p className="text-sm text-muted-foreground">Built on Solana with human-first governance</p>
           </div>
         </div>
       </footer>

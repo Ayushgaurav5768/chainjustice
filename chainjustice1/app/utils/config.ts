@@ -2,18 +2,22 @@ import "server-only";
 
 import { PinataSDK } from "pinata";
 
-function requiredEnv(name: string, value: string | undefined): string {
+function optionalEnv(value: string | undefined): string | undefined {
 	if (!value) {
-		throw new Error(`${name} is required`);
+		return undefined;
 	}
 
-	return value;
+	const trimmed = value.trim();
+	return trimmed.length > 0 ? trimmed : undefined;
 }
 
-const pinataJwt = requiredEnv("PINATA_JWT", process.env.PINATA_JWT);
-const pinataGateway = requiredEnv("NEXT_PUBLIC_GATEWAY_URL", process.env.NEXT_PUBLIC_GATEWAY_URL);
+const pinataJwt = optionalEnv(process.env.PINATA_JWT);
+const pinataGateway = optionalEnv(process.env.NEXT_PUBLIC_GATEWAY_URL);
 
-export const pinata = new PinataSDK({
-	pinataJwt,
-	pinataGateway,
-});
+export const pinata =
+	pinataJwt && pinataGateway
+		? new PinataSDK({
+			pinataJwt,
+			pinataGateway,
+		})
+		: null;
