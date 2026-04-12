@@ -1,325 +1,262 @@
-# ChainJustice
+# ⚖️ ChainJustice
 
-## AI Accountability Court for the Real World
+### The Decentralized AI Accountability Court
 
-AI argues both sides. Human jurors decide. Solana records the verdict forever.
+> **"AI argues both sides. Humans decide. Blockchain remembers."**
 
-## Project Pitch
-ChainJustice is a decentralized dispute system for AI harm and governance cases. A complainant files a case with evidence, the platform generates adversarial prosecution and defense briefs plus a neutral synthesis, and human jurors issue the final verdict. The result is written into a public Verdict Ledger with trust impacts and precedent links, creating a transparent accountability layer that courts, regulators, builders, and users can inspect.
-
-## Problem Statement
-AI systems increasingly cause meaningful harm, but accountability is fragmented, opaque, and hard to audit.
-
-- Evidence is scattered and easy to dispute.
-- Case review is slow and inconsistent.
-- Model trust history is not visible in one place.
-- Pure AI judgment is unsafe for legal decisions.
-- Pure human review can be slow and miss technical nuance.
-
-## Solution Overview
-ChainJustice combines adversarial AI analysis with human legal authority.
-
-1. Case intake: user files a complaint and uploads evidence.
-2. Evidence handling: files are pinned to IPFS or safely mocked when credentials are missing.
-3. Adversarial Council: AI generates prosecution, defense, and neutral advisory briefs.
-4. Juror decision: humans vote and remain the only final authority.
-5. Verdict Ledger: outcomes are surfaced in an accountability registry and can be anchored on-chain.
-
-## Architecture
-
-```mermaid
-flowchart LR
-  U[Complainant] --> FE[Next.js App\napp/src/app]
-  FE --> AIL[/POST /api/ai-legal/]
-  FE --> IPFS[/POST /api/ipfs/]
-  AIL --> AI[Generative AI Provider\nOptional]
-  IPFS --> P[Pinata\nOptional]
-  FE --> S[Solana Client\napp/src/lib/solana.ts]
-  S --> CH[Anchor Program\nprograms/chainjustice/src/lib.rs]
-  CH --> VL[Verdict + Trust State]
-  FE --> V[Verdict Ledger UI\napp/src/app/verdict-ledger]
-  VL --> V
-```
-
-### Runtime Modes
-
-1. Local frontend demo-safe mode.
-2. Local validator mode for Anchor testing.
-3. Devnet deployment mode.
-4. Production frontend deployment mode.
-
-## Adversarial Council
-The Adversarial Council is the core analysis engine exposed through [app/src/app/api/ai-legal/route.ts](app/src/app/api/ai-legal/route.ts).
-
-For each case, it produces:
-
-1. Prosecution brief: strongest arguments against the accused model.
-2. Defense brief: strongest arguments for the accused model.
-3. Neutral synthesis: unresolved questions, confidence, and juror guidance.
-
-This structure reduces one-sided prompting and helps jurors see competing interpretations before they vote.
-
-## Why AI Is Advisory Only
-AI is excellent at synthesis but not legitimate as a final legal authority.
-
-- Models can hallucinate or overfit to prompt framing.
-- Evidence weighting is ultimately a governance decision, not just a statistical one.
-- Juror legitimacy and accountability must remain human.
-
-ChainJustice enforces this by design with explicit advisory fields and disclaimers in API and UI flows, while human jurors remain final authority.
-
-## Verdict Ledger
-The Verdict Ledger page at [app/src/app/verdict-ledger/page.tsx](app/src/app/verdict-ledger/page.tsx) is the public accountability surface.
-
-It tracks:
-
-- model trust trajectory,
-- case outcomes,
-- upheld versus dismissed complaints,
-- recurring harm patterns,
-- insurance and risk indicators.
-
-If chain access is unavailable, it degrades gracefully to demo-safe fallback data so judges and users can still evaluate product behavior end to end.
-
-## Repo Structure (Current Paths)
-
-This workspace contains multiple folders. The active project is chainjustice1.
-
-```text
-chainjustice1/
-  Anchor.toml
-  Cargo.toml
-  package.json
-  tests/
-    chainjustice.ts
-  programs/
-    chainjustice/
-      src/
-        lib.rs
-        instructions/
-  app/
-    package.json
-    src/
-      app/
-        page.tsx
-        file-case/page.tsx
-        case/[id]/page.tsx
-        juror/page.tsx
-        registry/page.tsx
-        precedents/page.tsx
-        verdict-ledger/page.tsx
-        dashboard/page.tsx
-        api/
-          ai-legal/route.ts
-          ipfs/route.ts
-      components/
-      hooks/
-      lib/
-      types/
-```
-
-## Environment Variables
-Use [chainjustice1/.env.example](.env.example) and [chainjustice1/app/.env.example](app/.env.example) as source of truth.
-
-### Required for expected wallet and RPC behavior
-
-- NEXT_PUBLIC_SOLANA_NETWORK
-- NEXT_PUBLIC_SOLANA_RPC_URL
-- NEXT_PUBLIC_CHAINJUSTICE_PROGRAM_ID
-
-### Optional integrations
-
-- GOOGLE_API_KEY or GEMINI_API_KEY
-- PINATA_JWT or PINATA_API_KEY plus PINATA_SECRET
-- AI_COUNCIL_PROVIDER_POOL
-- NEXT_PUBLIC_GATEWAY_URL
-- NEXT_PUBLIC_PROGRAM_ID (alias)
-
-## Local Frontend Setup
-From [chainjustice1/package.json](package.json) scripts:
-
-```bash
-npm run setup
-```
-
-Create local env file:
-
-- Windows PowerShell:
-
-```powershell
-Copy-Item app/.env.example app/.env.local
-```
-
-- macOS or Linux:
-
-```bash
-cp app/.env.example app/.env.local
-```
-
-Run frontend:
-
-```bash
-npm run frontend:dev
-```
-
-Validate frontend before demo or deploy:
-
-```bash
-npm run frontend:validate
-```
-
-## Local Anchor Setup
-Prerequisites:
-
-1. Rust toolchain.
-2. Solana CLI with solana-test-validator.
-3. Anchor CLI.
-
-Build program:
-
-```bash
-npm run anchor:build
-```
-
-Anchor config currently uses localnet provider defaults in [chainjustice1/Anchor.toml](Anchor.toml).
-
-The default verification command is local-validator based:
-
-```bash
-npm run anchor:test
-```
-
-## Local Validator Test Flow
-
-```bash
-npm run anchor:test
-```
-
-This runs local cluster tests from [chainjustice1/tests/chainjustice.ts](tests/chainjustice.ts).
-
-## Devnet Deploy Flow
-Build and deploy:
-
-```bash
-npm run anchor:build
-npm run anchor:deploy:devnet
-```
-
-Optional devnet test run:
-
-```bash
-npm run anchor:test:devnet
-```
-
-Use devnet only for manual deployment or demo environments. Do not use devnet as the default verification path.
-
-Before devnet deploy, ensure wallet funding and verify program IDs in [chainjustice1/Anchor.toml](Anchor.toml).
-
-## Frontend Deployment Flow
-Vercel deployment is wired via root scripts in [chainjustice1/package.json](package.json).
-
-### Vercel project settings
-
-1. Root directory: app
-2. Install command: npm ci
-3. Build command: npm run build
-4. Start command: npm run start
-
-### CLI deploy from repo root
-
-```bash
-npm run deploy:frontend:vercel
-npm run deploy:frontend:vercel:prod
-```
-
-## API Routes
-
-| Route | Method | Purpose | Fallback Behavior |
-|---|---|---|---|
-| /api/ai-legal | POST | Adversarial legal analysis actions and advisory briefs | Returns structured advisory-safe response when provider is unavailable or output is invalid |
-| /api/ipfs | POST | Evidence upload and CID response | Returns mock CID payload when Pinata credentials are missing |
-
-Routes are implemented at [app/src/app/api/ai-legal/route.ts](app/src/app/api/ai-legal/route.ts) and [app/src/app/api/ipfs/route.ts](app/src/app/api/ipfs/route.ts).
-
-## Demo Walkthrough
-Use this flow for a clean judge demo.
-
-1. Open landing page and explain AI advisory plus human final authority.
-2. File a case in [app/src/app/file-case/page.tsx](app/src/app/file-case/page.tsx).
-3. Upload at least one evidence file.
-4. Open case details in [app/src/app/case/[id]/page.tsx](app/src/app/case/[id]/page.tsx) and show adversarial briefs.
-5. Open juror portal in [app/src/app/juror/page.tsx](app/src/app/juror/page.tsx) and cast final human vote.
-6. Open Verdict Ledger in [app/src/app/verdict-ledger/page.tsx](app/src/app/verdict-ledger/page.tsx) to show accountability signals.
-7. If external keys are absent, explicitly show graceful fallback responses and explain reliability by design.
-
-## Why Use AI in a Case Against AI?
-Short answer: because AI is useful as an expert witness, not as a judge.
-
-Judge-proof framing:
-
-- AI can surface technical patterns and contradictory evidence faster than manual review.
-- Adversarial prompting forces competing narratives, reducing one-sided framing.
-- Human jurors preserve legal legitimacy, normative judgment, and accountability.
-- ChainJustice combines the speed of machine analysis with the authority of human decision-making.
-
-So the platform is not "AI judging AI." It is "AI briefing humans who judge AI."
-
-## Command Cheat Sheet
-
-```bash
-# setup
-npm run setup
-
-# frontend
-npm run frontend:dev
-npm run frontend:validate
-npm run frontend:build
-npm run frontend:start
-
-# anchor local
-npm run anchor:build
-npm run anchor:test
-
-# anchor devnet
-npm run anchor:deploy:devnet
-npm run anchor:test:devnet
-
-# vercel
-npm run deploy:frontend:vercel:prod
-```
-
-## Roadmap
-
-1. Full on-chain case lifecycle parity for all UI actions.
-2. Juror identity and anti-collusion enhancements.
-3. Stronger precedent search and citation quality scoring.
-4. Multi-provider adversarial council with transparent confidence calibration.
-5. Automated policy compliance packs for enterprise and regulators.
-6. End-to-end observability dashboard for audit trails and response provenance.
-
-## Troubleshooting
-
-### anchor command not found
-Install Anchor CLI and confirm it is on PATH.
-
-### solana-test-validator not found
-Install Solana CLI and verify validator binary is available.
-
-### frontend build fails due to missing env values
-Copy [app/.env.example](app/.env.example) to app/.env.local and set required NEXT_PUBLIC values.
-
-### wallet connects but no on-chain data appears
-Check RPC URL, network, and program ID alignment across env and [chainjustice1/Anchor.toml](Anchor.toml).
-
-### /api/ipfs returns fallback payload
-Pinata credentials are missing or invalid. Set PINATA_JWT or PINATA_API_KEY and PINATA_SECRET.
-
-### /api/ai-legal returns advisory mock output
-AI provider key is missing or provider output did not validate. Set GOOGLE_API_KEY or GEMINI_API_KEY.
-
-### vercel deploy works but app cannot resolve routes
-Ensure Vercel root directory is app and build command is npm run build.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Built on Solana](https://img.shields.io/badge/Built%20on-Solana-9945FF?logo=solana)](https://solana.com)
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org)
+[![Anchor](https://img.shields.io/badge/Anchor-0.30-blue)](https://www.anchor-lang.com)
+[![Team](https://img.shields.io/badge/Team-404%20Shinobi-red)](https://github.com/Ayushgaurav5768/chainjustice)
 
 ---
 
-ChainJustice is built for transparent AI accountability: rigorous analysis, human legitimacy, and deployable engineering.
+## 📌 What is ChainJustice?
+
+ChainJustice is a **decentralized AI accountability court** built on Solana. When an AI system causes harm — through privacy violations, bias, misleading outputs, or unsafe behavior — users currently have nowhere neutral to go. Their complaints go straight back to the company that built the AI, making the process opaque, biased, and unauditable.
+
+ChainJustice changes that by providing:
+
+- A structured **case filing and evidence submission** workflow
+- An **Adversarial AI Council** that argues both prosecution and defense
+- A **human juror panel** that makes the final binding decision
+- An **on-chain Verdict Ledger** recording every outcome, trust score change, and insurance impact — permanently
+
+---
+
+## 🏗️ Project Structure
+
+```
+chainjustice/
+├── chainjustice/        ← Default Next.js starter (ignore)
+└── chainjustice1/       ← 🚀 REAL PROJECT IS HERE
+    ├── app/             ← Next.js 15 frontend
+    │   └── src/
+    │       ├── app/     ← Pages: file-case, case/[id], juror, verdict-ledger, registry, precedents, dashboard
+    │       ├── lib/     ← Solana client, IPFS, AI helpers, config, types
+    │       └── components/
+    ├── programs/
+    │   └── chainjustice/
+    │       └── src/lib.rs  ← Anchor/Rust smart contract
+    ├── tests/
+    │   └── chainjustice.ts ← Anchor test suite
+    ├── Anchor.toml
+    └── Cargo.toml
+```
+
+> ⚠️ **The real product is in `chainjustice1/`. The root `chainjustice/` folder is just a Next.js template.**
+
+---
+
+## ✨ Key Features
+
+### 1. 📂 Case Filing
+Users file a complaint against any registered AI model. They provide the harm description, category (bias, privacy, misinformation, safety, etc.), and relevant evidence files.
+
+### 2. 🔒 Evidence on IPFS
+Evidence files (PNG, JPG, PDF, TXT, DOCX — up to 10 MB each) are uploaded to IPFS via Pinata. Only the content hash (CID) is stored on-chain, preserving evidence integrity while keeping costs low.
+
+### 3. 🤖 Adversarial AI Council
+Our AI layer (powered by Google Gemini, with multi-provider support) generates:
+- **Prosecution brief** — strongest arguments for the complainant
+- **Defense brief** — strongest arguments for the AI model/provider
+- **Neutral synthesis** — an objective summary of the conflict
+- **Evidence gaps** — what's missing to fully resolve the case
+- **Contradictions** — inconsistencies in the evidence
+- **Juror questions** — suggested questions for the jury
+- **AI Disagreement Meter** — low / medium / high
+
+> 🔑 The AI is **not the judge**. It is the expert analyst. Human jurors hold final authority.
+
+### 4. 👨‍⚖️ Human Juror Governance
+Jurors stake SOL to participate, ensuring skin-in-the-game accountability. Each juror reviews the case and casts a binding vote. The verdict is finalized by majority.
+
+### 5. 🏦 Insurance Pool & Trust Score
+Every registered AI model has:
+- **Trust Score** — starts at 70/100, updated on every verdict
+- **Insurance Pool** — SOL deposited by the model provider
+
+On verdict enforcement:
+| Verdict | Trust Change | Payout |
+|---------|-------------|--------|
+| Plaintiff wins | −10 | 5% of insurance pool → complainant |
+| Defendant wins | +2 | — |
+| Split | −3 | — |
+
+### 6. 📜 Verdict Ledger
+A public, searchable, on-chain record of every case outcome — the AI accountability equivalent of a credit bureau. Every model's history is permanently visible and immutable.
+
+---
+
+## 🔧 Tech Stack
+
+| Layer | Technology | Role |
+|-------|-----------|------|
+| Smart Contract | Anchor / Rust on Solana | Court logic, voting, trust, insurance |
+| Frontend | Next.js 15, TypeScript, Tailwind CSS | Full web application |
+| AI Analysis | Google Gemini (+ OpenAI / Anthropic fallback) | Adversarial legal briefs |
+| Evidence Storage | IPFS via Pinata | Decentralized file storage |
+| Wallet | Phantom / Solflare | User identity + transaction signing |
+| Deployment | Vercel | Frontend hosting |
+
+---
+
+## 🔗 Smart Contract Instructions
+
+| Instruction | Description |
+|-------------|-------------|
+| `initialize_registry` | Creates the court registry on-chain |
+| `register_ai_model` | Registers an AI model with metadata and insurance |
+| `deposit_insurance` | Adds SOL to the model's insurance pool |
+| `file_case` | Opens a new case against a model |
+| `submit_evidence` | Anchors evidence metadata (IPFS CID) on-chain |
+| `stake_as_juror` | Stakes SOL for juror eligibility |
+| `select_jurors` | Assigns jurors to a case |
+| `submit_ai_analysis` | Logs advisory AI analysis metadata |
+| `log_ai_decision` | Updates analysis metadata for audit trail |
+| `cast_vote` | Juror casts a binding vote |
+| `enforce_verdict` | Finalizes case, updates trust + insurance |
+| `update_trust_score` | Governance/appeal trust adjustment post-closure |
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js ≥ 18
+- Rust + Solana CLI + Anchor CLI
+- A Phantom or Solflare wallet (for frontend)
+
+### 1. Clone the repo
+```bash
+git clone https://github.com/Ayushgaurav5768/chainjustice.git
+cd chainjustice/chainjustice1
+```
+
+### 2. Install smart contract dependencies
+```bash
+npm install
+```
+
+### 3. Build the Anchor program
+```bash
+anchor build
+```
+
+### 4. Run tests
+```bash
+anchor test
+```
+
+### 5. Set up the frontend
+```bash
+cd app
+cp .env.example .env.local
+# Fill in your keys (see Environment Variables section below)
+npm install
+npm run dev
+```
+
+---
+
+## 🔑 Environment Variables
+
+### `chainjustice1/.env.example`
+```env
+ANCHOR_PROVIDER_URL=https://api.devnet.solana.com
+ANCHOR_WALLET=~/.config/solana/id.json
+```
+
+### `chainjustice1/app/.env.example`
+```env
+# Solana
+NEXT_PUBLIC_SOLANA_NETWORK=devnet
+
+# AI Analysis (required for real AI briefs)
+GEMINI_API_KEY=
+
+# IPFS / Evidence Storage (optional — mock mode used if missing)
+PINATA_API_KEY=
+PINATA_SECRET=
+
+# Multi-provider AI conflict firewall (optional)
+AI_COUNCIL_PROVIDER_POOL=gemini,openai,anthropic
+```
+
+> 💡 The app runs in **demo-safe mode** without these keys — all flows still work with mock data.
+
+---
+
+## 🧪 Test Coverage
+
+Tests are in `tests/chainjustice.ts` and cover:
+
+- Registry initialization
+- AI model registration
+- Case filing
+- Evidence submission
+- Juror staking
+- Juror selection
+- AI analysis submission
+- Vote casting
+
+Run with:
+```bash
+anchor test
+# or
+npm run test-local
+```
+
+---
+
+## 🗺️ Roadmap
+
+| Phase | Feature | Status |
+|-------|---------|--------|
+| MVP | Core filing, AI council, juror voting, verdict ledger | ✅ Done |
+| v1.1 | Live Solana devnet deployment + IDL wiring | 🔄 In progress |
+| v1.2 | Evidence encryption + permissioned IPFS retrieval | 📋 Planned |
+| v1.3 | Appeals workflow + trust override governance | 📋 Planned |
+| v2.0 | Enterprise compliance packs + observability dashboard | 📋 Planned |
+| v2.1 | Multi-chain expansion | 📋 Planned |
+
+---
+
+## 🤝 Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for development guidelines and contribution workflow.
+
+---
+
+## 👥 Team — 404 Shinobi
+
+Built with ☕ and Solana at hackathon speed.
+
+| Role | Responsibility |
+|------|---------------|
+| Blockchain Lead | Anchor/Rust smart contract design and testing |
+| Full-Stack Lead | Next.js frontend, API routes, IPFS integration |
+| AI/Product Lead | Adversarial AI council design, product flow |
+
+---
+
+## 📄 License
+
+MIT — see [LICENSE](./LICENSE) for details.
+
+---
+
+## ⚠️ Disclaimer
+
+ChainJustice is a hackathon MVP. The AI Council output is **advisory only and has no binding authority**. Final decisions are made exclusively by human jurors. This is not legal advice and does not constitute a formal legal proceeding.
+
+---
+
+<div align="center">
+
+**⚖️ ChainJustice — Because AI needs accountability, not just intelligence.**
+
+[Live Demo](https://chainjustice-nu3o.vercel.app) • [GitHub](https://github.com/Ayushgaurav5768/chainjustice) • [Team: 404 Shinobi]
+
+</div>
