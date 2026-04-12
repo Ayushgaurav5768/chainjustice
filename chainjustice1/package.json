@@ -6,6 +6,7 @@
     "setup": "npm ci && npm ci --prefix app",
     "frontend:setup": "npm ci --prefix app",
     "frontend:dev": "npm run dev --prefix app",
+    "prebuild": "npm run frontend:setup",
     "frontend:build": "npm run build --prefix app",
     "frontend:start": "npm run start --prefix app",
     "frontend:lint": "npm run lint --prefix app",
