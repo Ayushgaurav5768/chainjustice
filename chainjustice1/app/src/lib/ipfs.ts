@@ -4,24 +4,28 @@ export type IpfsUploadSuccess = {
   source: "pinata" | "mock"
   data: {
     cid: string
+    url: string
+    filename: string
+    mimeType: string
+    size: number
+    // Backward-compatible fields maintained by the API.
     ipfsHash: string
     gatewayUrl: string
     originalFilename: string
-    mimeType: string
-    size: number
     uploadedAt: string
   }
 }
 
 export type IpfsUploadError = {
   success: false
-  fallbackMode: boolean
   error: {
     code:
+      | "BAD_REQUEST"
       | "INVALID_CONTENT_TYPE"
       | "MISSING_FILE"
       | "INVALID_FILE_TYPE"
       | "FILE_TOO_LARGE"
+      | "AI_PROVIDER_ERROR"
       | "PINATA_UPLOAD_FAILED"
       | "INTERNAL_ERROR"
     message: string

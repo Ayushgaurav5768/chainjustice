@@ -5,9 +5,17 @@ import { useMemo, useState } from "react"
 import Link from "next/link"
 import Button from "@/components/ui/button"
 import Input from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import PageHeader from "@/components/page-header"
 import GlassCard from "@/components/glass-card"
 import { uploadEvidenceFile } from "@/lib/ipfs"
+import { ADVISORY_DISCLAIMER } from "@/lib/constants"
 import {
   AlertCircle,
   Brain,
@@ -173,9 +181,10 @@ export default function FileCasePage() {
           },
         }),
       })
+      const result = await response.json().catch(() => null)
 
       if (!response.ok) {
-        throw new Error("Case submission failed")
+        throw new Error(result?.error?.message || "Case submission failed")
       }
 
       const now = Date.now().toString().slice(-6)
@@ -206,7 +215,7 @@ export default function FileCasePage() {
           <GlassCard className="p-6" glow="cyan">
             <h2 className="text-lg font-semibold">Case Intake</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              AI briefs are non-binding. Human jurors decide final outcomes.
+              AI output is advisory only. Human jurors make final decisions.
             </p>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -222,34 +231,34 @@ export default function FileCasePage() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Category</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full rounded-md border border-input bg-secondary/50 px-3 py-2 text-sm"
-                >
-                  <option value="">Select category</option>
-                  {CATEGORIES.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger className="w-full bg-secondary/50">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((item) => (
+                      <SelectItem key={item} value={item}>
+                        {item}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Accused Model</label>
-                <select
-                  value={modelId}
-                  onChange={(e) => handleSelectModel(e.target.value)}
-                  className="w-full rounded-md border border-input bg-secondary/50 px-3 py-2 text-sm"
-                >
-                  <option value="">Select model</option>
-                  {MODELS.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} ({item.category})
-                    </option>
-                  ))}
-                </select>
+                <Select value={modelId} onValueChange={handleSelectModel}>
+                  <SelectTrigger className="w-full bg-secondary/50">
+                    <SelectValue placeholder="Select model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MODELS.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name} ({item.category})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2 sm:col-span-2">
@@ -295,7 +304,7 @@ export default function FileCasePage() {
               />
             </label>
 
-            {evidence.length > 0 && (
+            {evidence.length > 0 ? (
               <div className="mt-4 space-y-2">
                 {evidence.map((item) => (
                   <div key={item.id} className="flex items-center gap-3 rounded-lg border border-border/50 bg-secondary/20 p-3">
@@ -316,6 +325,10 @@ export default function FileCasePage() {
                     </Button>
                   </div>
                 ))}
+              </div>
+            ) : (
+              <div className="mt-4 rounded-lg border border-border/50 bg-secondary/20 p-4 text-sm text-muted-foreground">
+                No evidence uploaded yet. Add at least one file to continue.
               </div>
             )}
           </GlassCard>
@@ -370,7 +383,7 @@ export default function FileCasePage() {
             <div className="flex items-start gap-3">
               <Shield className="mt-0.5 h-5 w-5 text-cyan" />
               <p className="text-xs text-muted-foreground">
-                Final decisions are made exclusively by human jurors. Evidence and outcomes are publicly auditable.
+                {ADVISORY_DISCLAIMER}
               </p>
             </div>
           </GlassCard>

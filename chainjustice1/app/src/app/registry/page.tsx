@@ -7,6 +7,8 @@ import Input from "@/components/ui/input"
 import PageHeader from "@/components/page-header"
 import StatusBadge from "@/components/status-badge"
 import TrustScore from "@/components/trust-score"
+import StatCard from "@/components/stat-card"
+import { ADVISORY_DISCLAIMER } from "@/lib/constants"
 import { Search, Shield } from "lucide-react"
 
 type ModelRecord = {
@@ -92,12 +94,34 @@ export default function RegistryPage() {
     [categoryFilter, query, statusFilter]
   )
 
+  const summary = useMemo(() => {
+    const total = filtered.length
+    const avgTrust =
+      total > 0 ? Math.round(filtered.reduce((sum, item) => sum + item.trustScore, 0) / total) : 0
+    const warnings = filtered.filter((item) => item.status === "warning").length
+    const suspended = filtered.filter((item) => item.status === "suspended").length
+    return { total, avgTrust, warnings, suspended }
+  }, [filtered])
+
   return (
     <div className="space-y-8">
       <PageHeader
         title="Registry"
         description="Browse registered AI models by provider, trust, insurance, and incident history."
       />
+
+      <GlassCard className="border-violet/30 bg-violet/5 p-4">
+        <p className="text-xs text-muted-foreground">
+          {ADVISORY_DISCLAIMER} Registry risk indicators support juror review but do not decide verdicts.
+        </p>
+      </GlassCard>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Models Visible" value={summary.total} iconColor="cyan" />
+        <StatCard label="Average Trust" value={summary.avgTrust} iconColor="violet" />
+        <StatCard label="Warning" value={summary.warnings} iconColor="warning" />
+        <StatCard label="Suspended" value={summary.suspended} iconColor="success" />
+      </div>
 
       <GlassCard className="p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -179,6 +203,7 @@ export default function RegistryPage() {
       {filtered.length === 0 && (
         <GlassCard className="p-8 text-center">
           <p className="text-sm text-muted-foreground">No models match the current filters.</p>
+          <p className="mt-2 text-xs text-muted-foreground">Try clearing search and status filters.</p>
         </GlassCard>
       )}
     </div>

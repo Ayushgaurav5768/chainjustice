@@ -1,8 +1,30 @@
 {
-  "license": "ISC",  
+  "name": "chainjustice1",
+  "private": true,
+  "license": "ISC",
   "scripts": {
-    "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
-    "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check"
+    "setup": "npm ci && npm ci --prefix app",
+    "frontend:setup": "npm ci --prefix app",
+    "frontend:dev": "npm run dev --prefix app",
+    "frontend:build": "npm run build --prefix app",
+    "frontend:start": "npm run start --prefix app",
+    "frontend:lint": "npm run lint --prefix app",
+    "frontend:typecheck": "npm run typecheck --prefix app",
+    "frontend:validate": "npm run frontend:typecheck && npm run frontend:build",
+    "dev": "npm run dev --prefix app",
+    "build": "npm run build --prefix app",
+    "start": "npm run start --prefix app",
+    "lint": "npm run lint --prefix app",
+    "format": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
+    "format:check": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
+    "anchor:build": "anchor build",
+    "anchor:test": "anchor test --provider.cluster localnet",
+    "anchor:test:local": "anchor test --provider.cluster localnet",
+    "anchor:test:devnet": "anchor test --skip-local-validator --skip-build --provider.cluster devnet",
+    "anchor:deploy:local": "anchor deploy --provider.cluster localnet",
+    "anchor:deploy:devnet": "anchor deploy --provider.cluster devnet",
+    "deploy:frontend:vercel": "vercel --cwd app",
+    "deploy:frontend:vercel:prod": "vercel --cwd app --prod"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1"
@@ -14,7 +36,7 @@
     "@types/bn.js": "^5.1.0",
     "@types/chai": "^4.3.0",
     "@types/mocha": "^9.0.0",
-    "typescript": "^4.3.5",
+    "typescript": "^5.6.3",
     "prettier": "^2.6.2"
   }
 }

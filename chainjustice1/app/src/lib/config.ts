@@ -8,12 +8,19 @@ const getEnv = (name: string): string | undefined => {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
+const normalizeNetwork = (value?: string): "devnet" | "testnet" | "mainnet-beta" => {
+  if (value === "mainnet-beta" || value === "testnet" || value === "devnet") {
+    return value
+  }
+  return DEFAULT_SOLANA_NETWORK as "devnet" | "testnet" | "mainnet-beta"
+}
+
 export const appConfig = {
   googleApiKey: getEnv("GOOGLE_API_KEY") || getEnv("GEMINI_API_KEY"),
   pinataApiKey: getEnv("PINATA_API_KEY"),
   pinataSecret: getEnv("PINATA_SECRET"),
   pinataJwt: getEnv("PINATA_JWT"),
-  solanaNetwork: getEnv("NEXT_PUBLIC_SOLANA_NETWORK") || DEFAULT_SOLANA_NETWORK,
+  solanaNetwork: normalizeNetwork(getEnv("NEXT_PUBLIC_SOLANA_NETWORK")),
   solanaRpcUrl: getEnv("NEXT_PUBLIC_SOLANA_RPC_URL"),
   gatewayUrl: getEnv("NEXT_PUBLIC_GATEWAY_URL") || DEFAULT_GATEWAY_URL,
   chainjusticeProgramId:

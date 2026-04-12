@@ -7,12 +7,17 @@ skip-lint = false
 [programs.devnet]
 chainjustice = "G6UN14ZNB6TpXgohEzmaXBGmfwzpmgRPi4w7p4p39woC"
 
+[programs.localnet]
+chainjustice = "G6UN14ZNB6TpXgohEzmaXBGmfwzpmgRPi4w7p4p39woC"
+
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Devnet"
-wallet = "~/.config/solana/id.json"
+cluster = "Localnet"
+wallet = "./target/deploy/chainjustice-keypair.json"
 
 [scripts]
-test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+test = "npx ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+test-local = "npx ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+test-devnet-manual = "npx ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

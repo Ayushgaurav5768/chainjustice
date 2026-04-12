@@ -7,6 +7,8 @@ import GlassCard from "@/components/glass-card"
 import PageHeader from "@/components/page-header"
 import StatusBadge from "@/components/status-badge"
 import TrustScore from "@/components/trust-score"
+import { ADVISORY_DISCLAIMER as ADVISORY_ONLY_NOTICE } from "@/lib/constants"
+import type { AiLegalCouncilResponse } from "@/lib/types"
 import {
   AlertTriangle,
   ChevronRight,
@@ -79,8 +81,45 @@ const FALLBACK_TIMELINE = [
   { at: "2026-04-10T10:00:00Z", title: "Juror panel formed", detail: "5 jurors assigned to independent review." },
 ]
 
-const ADVISORY_DISCLAIMER =
-  "AI output is advisory only and has no binding authority. Final decisions are made exclusively by human jurors."
+const ADVISORY_DISCLAIMER = ADVISORY_ONLY_NOTICE
+
+const FALLBACK_COUNCIL: CouncilData = {
+  prosecutionBrief: {
+    thesis: "The complainant presents a plausible harm pathway tied to model behavior and disclosure mismatch.",
+    keyArguments: ["Policy-behavior mismatch", "User impact appears concrete"],
+    citedEvidence: ["Incident log", "Policy snapshot"],
+    legalTheory: "Reliance harm",
+    vulnerabilities: ["Requires stronger causation trace"],
+    confidence: 70,
+    uncertaintyNotes: ["Some telemetry remains incomplete"],
+  },
+  defenseBrief: {
+    thesis: "Alternative integration or operator factors may explain portions of the observed outcome.",
+    keyArguments: ["Competing causes remain plausible", "Evidence scope may be incomplete"],
+    citedEvidence: ["Deployment context notes"],
+    legalTheory: "Insufficient direct causation",
+    vulnerabilities: ["Weak if logs conflict with policy claims"],
+    confidence: 63,
+    uncertaintyNotes: ["Version lineage needs confirmation"],
+  },
+  neutralSynthesis: {
+    synthesisSummary:
+      "Jurors should prioritize authenticated logs, deployment version traceability, and direct harm linkage before final vote.",
+    strongestProsecutionPoints: ["Behavior-policy mismatch"],
+    strongestDefensePoints: ["Alternative causes not excluded"],
+    unresolvedQuestions: ["Which exact model version handled each event?"],
+    jurorGuidance: ["Weight primary evidence over summaries"],
+    confidence: 67,
+    uncertaintyNotes: ["Advisory analysis only"],
+  },
+  evidenceGaps: ["Versioned telemetry export"],
+  contradictions: ["Public policy claims versus incident trace"],
+  recommendedQuestionsForJurors: [
+    "What evidence directly connects the accused model to the alleged harm?",
+  ],
+  confidenceAndUncertaintyNotes: ["AI analysis is advisory only."],
+  aiDisagreementMeter: "medium",
+}
 
 const meterClass = (meter: CouncilData["aiDisagreementMeter"]) => {
   if (meter === "high") return "bg-destructive/20 text-destructive border-destructive/30"
@@ -139,13 +178,20 @@ export default function CaseDetailsPage({ params }: { params: { id: string } }) 
           throw new Error("Unable to load AI case briefs")
         }
 
-        const result = await response.json().catch(() => ({}))
+        const result = (await response.json().catch(() => null)) as AiLegalCouncilResponse | null
         if (!active) return
 
-        setCouncil(result?.data || null)
-        setState({ status: "ready", message: "Loaded" })
+        if (result?.success && result.data) {
+          setCouncil(result.data)
+          setState({ status: "ready", message: "Loaded" })
+          return
+        }
+
+        setCouncil(FALLBACK_COUNCIL)
+        setState({ status: "error", message: "Advisory briefs are in fallback mode." })
       } catch (error) {
         if (!active) return
+        setCouncil(FALLBACK_COUNCIL)
         setState({
           status: "error",
           message: error instanceof Error ? error.message : "Failed to load case analysis",
@@ -226,9 +272,13 @@ export default function CaseDetailsPage({ params }: { params: { id: string } }) 
             </div>
 
             {!council && (
-              <p className="mt-4 text-sm text-muted-foreground">
-                {state.status === "loading" ? "Generating briefs..." : "Briefs unavailable."}
-              </p>
+              <div className="mt-4 space-y-2">
+                <div className="h-16 animate-pulse rounded-lg bg-secondary/30" />
+                <div className="h-16 animate-pulse rounded-lg bg-secondary/20" />
+                <p className="text-sm text-muted-foreground">
+                  {state.status === "loading" ? "Generating briefs..." : "Briefs unavailable."}
+                </p>
+              </div>
             )}
 
             {council && (
@@ -312,8 +362,10 @@ export default function CaseDetailsPage({ params }: { params: { id: string } }) 
           </GlassCard>
 
           <div className="grid grid-cols-2 gap-2">
-            <Button className="bg-success text-primary-foreground hover:bg-success/90">
-              <Gavel className="mr-2 h-4 w-4" />Vote
+            <Button className="bg-success text-primary-foreground hover:bg-success/90" asChild>
+              <Link href="/juror">
+                <Gavel className="mr-2 h-4 w-4" />Human Juror Vote
+              </Link>
             </Button>
             <Button variant="outline" asChild>
               <Link href="/juror">

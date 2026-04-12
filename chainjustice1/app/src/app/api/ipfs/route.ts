@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { appConfig } from '@/lib/config';
+import { apiError } from '@/lib/api-response';
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set([
@@ -14,58 +15,23 @@ const ALLOWED_MIME_TYPES = new Set([
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
 
-type UploadErrorCode =
-  | 'INVALID_CONTENT_TYPE'
-  | 'MISSING_FILE'
-  | 'INVALID_FILE_TYPE'
-  | 'FILE_TOO_LARGE'
-  | 'PINATA_UPLOAD_FAILED'
-  | 'INTERNAL_ERROR';
-
-type UploadErrorPayload = {
-  success: false;
-  fallbackMode: boolean;
-  error: {
-    code: UploadErrorCode;
-    message: string;
-    details?: Record<string, unknown>;
-  };
-};
-
 type UploadSuccessPayload = {
   success: true;
   fallbackMode: boolean;
   source: 'pinata' | 'mock';
   data: {
     cid: string;
+    url: string;
+    filename: string;
+    mimeType: string;
+    size: number;
+    // Backward-compatible aliases used by existing frontend consumers.
     ipfsHash: string;
     gatewayUrl: string;
     originalFilename: string;
-    mimeType: string;
-    size: number;
     uploadedAt: string;
   };
 };
-
-const jsonError = (
-  status: number,
-  code: UploadErrorCode,
-  message: string,
-  fallbackMode = false,
-  details?: Record<string, unknown>
-) =>
-  NextResponse.json<UploadErrorPayload>(
-    {
-      success: false,
-      fallbackMode,
-      error: {
-        code,
-        message,
-        details,
-      },
-    },
-    { status }
-  );
 
 const hasPinataCredentials = (): boolean => {
   const hasJwt = Boolean(appConfig.pinataJwt);
@@ -95,7 +61,18 @@ const inferMimeFromName = (name: string): string => {
   return '';
 };
 
-const validateFile = (file: File): { error: UploadErrorPayload['error'] | null; mimeType: string } => {
+const validateFile = (
+  file: File
+): {
+  error:
+    | {
+        code: 'MISSING_FILE' | 'INVALID_FILE_TYPE' | 'FILE_TOO_LARGE';
+        message: string;
+        details?: Record<string, unknown>;
+      }
+    | null;
+  mimeType: string;
+} => {
   if (!file || !(file instanceof File)) {
     return {
       error: {
@@ -189,7 +166,7 @@ export async function POST(request: NextRequest) {
   try {
     const contentType = request.headers.get('content-type') || '';
     if (!contentType.toLowerCase().includes('multipart/form-data')) {
-      return jsonError(
+      return apiError(
         400,
         'INVALID_CONTENT_TYPE',
         'Content-Type must be multipart/form-data.'
@@ -201,11 +178,10 @@ export async function POST(request: NextRequest) {
 
     const validation = validateFile(file);
     if (validation.error) {
-      return jsonError(
+      return apiError(
         400,
         validation.error.code,
         validation.error.message,
-        false,
         validation.error.details
       );
     }
@@ -219,11 +195,13 @@ export async function POST(request: NextRequest) {
         source: 'mock',
         data: {
           cid,
+          url: buildGatewayUrl(cid),
+          filename: file.name,
+          mimeType,
+          size: file.size,
           ipfsHash: cid,
           gatewayUrl: buildGatewayUrl(cid),
           originalFilename: file.name,
-          mimeType,
-          size: file.size,
           uploadedAt: new Date().toISOString(),
         },
       });
@@ -233,12 +211,12 @@ export async function POST(request: NextRequest) {
     try {
       pinResult = await pinToIpfs(file);
     } catch (error) {
-      return jsonError(
+      return apiError(
         502,
         'PINATA_UPLOAD_FAILED',
         'Upload provider failed to pin the file.',
-        true,
         {
+          fallbackMode: true,
           reason: error instanceof Error ? error.message : 'Unknown pinning error',
         }
       );
@@ -250,22 +228,23 @@ export async function POST(request: NextRequest) {
       source: 'pinata',
       data: {
         cid: pinResult.cid,
+        url: buildGatewayUrl(pinResult.cid),
+        filename: file.name,
+        mimeType,
+        size: file.size,
         ipfsHash: pinResult.cid,
         gatewayUrl: buildGatewayUrl(pinResult.cid),
         originalFilename: file.name,
-        mimeType,
-        size: file.size,
         uploadedAt: pinResult.uploadedAt,
       },
     });
 
   } catch (error: unknown) {
     console.error('IPFS Upload Error:', error);
-    return jsonError(
+    return apiError(
       500,
       'INTERNAL_ERROR',
       'Unexpected upload error occurred.',
-      false,
       {
         reason: error instanceof Error ? error.message : 'Unknown error',
       }

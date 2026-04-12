@@ -10,10 +10,26 @@ import { appConfig, resolveRpcEndpoint } from "@/lib/config"
 import { mockVerdictLedger } from "@/lib/mock-data"
 import type { VerdictLedgerEntry } from "@/types"
 
-export const CHAINJUSTICE_NETWORK = "devnet"
+export const CHAINJUSTICE_NETWORK = appConfig.solanaNetwork
 export const HAS_CHAINJUSTICE_IDL = false
 
+const DEFAULT_PROGRAM_ID = "G6UN14ZNB6TpXgohEzmaXBGmfwzpmgRPi4w7p4p39woC"
+
+const resolveProgramId = (): PublicKey => {
+  try {
+    return new PublicKey(appConfig.chainjusticeProgramId)
+  } catch {
+    return new PublicKey(DEFAULT_PROGRAM_ID)
+  }
+}
+
 type AnchorWalletLike = {
+  publicKey: PublicKey
+  signTransaction: AnchorProvider["wallet"]["signTransaction"]
+  signAllTransactions: AnchorProvider["wallet"]["signAllTransactions"]
+}
+
+type WalletInput = {
   publicKey: PublicKey
   signTransaction: AnchorProvider["wallet"]["signTransaction"]
   signAllTransactions?: AnchorProvider["wallet"]["signAllTransactions"]
@@ -21,7 +37,7 @@ type AnchorWalletLike = {
 
 type ProgramFetchOptions = {
   connection?: Connection
-  wallet?: AnchorWalletLike
+  wallet?: WalletInput
   idl?: Idl
 }
 
@@ -68,6 +84,7 @@ export type ClientResult<T> = {
   source: "anchor" | "mock"
   signature?: TransactionSignature
   data: T
+  message?: string
 }
 
 export type RegisterModelInput = {
@@ -104,6 +121,7 @@ export type CastVoteInput = {
 export type EnforceVerdictInput = {
   caseId: bigint | number
   complainant: PublicKey
+  aiModel?: PublicKey
 }
 
 export type DepositInsuranceInput = {
@@ -111,14 +129,29 @@ export type DepositInsuranceInput = {
   amountLamports: number
 }
 
-export const CHAINJUSTICE_PROGRAM_ID = new PublicKey(
-  appConfig.chainjusticeProgramId
-)
+export const CHAINJUSTICE_PROGRAM_ID = resolveProgramId()
 
 export const getRpcEndpoint = (): string => resolveRpcEndpoint()
 
 export const createConnection = (): Connection =>
   new Connection(getRpcEndpoint(), "confirmed")
+
+const toHumanReadableError = (action: string, error: unknown): string => {
+  if (error instanceof Error && error.message) {
+    return `${action} failed: ${error.message}`
+  }
+  return `${action} failed due to an unexpected wallet or network error`
+}
+
+const requireWallet = (wallet: ProgramFetchOptions["wallet"], action: string): WalletInput => {
+  if (!wallet) {
+    throw new Error(
+      `${action} requires a connected wallet. Connect Phantom, Solflare, or another Wallet Standard wallet and try again.`
+    )
+  }
+
+  return wallet
+}
 
 const createReadonlyWallet = (): AnchorWalletLike => ({
   publicKey: PublicKey.default,
@@ -128,7 +161,15 @@ const createReadonlyWallet = (): AnchorWalletLike => ({
 
 const toAnchorWallet = (
   wallet?: ProgramFetchOptions["wallet"]
-): AnchorWalletLike => wallet || createReadonlyWallet()
+): AnchorWalletLike => {
+  const resolved = wallet || createReadonlyWallet()
+
+  return {
+    publicKey: resolved.publicKey,
+    signTransaction: resolved.signTransaction,
+    signAllTransactions: resolved.signAllTransactions || (async (txs) => txs),
+  }
+}
 
 const createProvider = (
   connection: Connection,
@@ -175,13 +216,17 @@ export const getProgram = (
     }
   }
 
-  const program = new Program(options.idl, CHAINJUSTICE_PROGRAM_ID, provider)
+  const program = new Program(options.idl, provider)
   return {
     program,
     provider,
     source: "anchor",
   }
 }
+
+export const initializeProgram = (
+  options: ProgramFetchOptions = {}
+): ProgramContext => getProgram(options)
 
 export const getRegistryPda = (): [PublicKey, number] =>
   PublicKey.findProgramAddressSync(
@@ -252,10 +297,7 @@ export const registerModel = async (
   options: ProgramFetchOptions = {}
 ): Promise<ClientResult<{ model: PublicKey }>> => {
   const ctx = getProgram(options)
-  const wallet = options.wallet
-  if (!wallet) {
-    throw new Error("Wallet is required for registerModel")
-  }
+  const wallet = requireWallet(options.wallet, "registerModel")
 
   const [model] = getAiModelPda(wallet.publicKey)
 
@@ -269,25 +311,34 @@ export const registerModel = async (
 
   const program = asProgramLike(ctx.program)
 
-  const signature = await program.methods
-    .registerAiModel(
-      input.modelFamily,
-      input.modelName,
-      input.metadataUri,
-      new BN(input.initialDepositLamports || 0)
-    )
-    .accounts({
-      provider: wallet.publicKey,
-      aiModel: model,
-      systemProgram: web3.SystemProgram.programId,
-    })
-    .rpc()
+  try {
+    const signature = await program.methods
+      .registerAiModel(
+        input.modelFamily,
+        input.modelName,
+        input.metadataUri,
+        new BN(input.initialDepositLamports || 0)
+      )
+      .accounts({
+        provider: wallet.publicKey,
+        aiModel: model,
+        systemProgram: web3.SystemProgram.programId,
+      })
+      .rpc()
 
-  return {
-    success: true,
-    source: "anchor",
-    signature,
-    data: { model },
+    return {
+      success: true,
+      source: "anchor",
+      signature,
+      data: { model },
+    }
+  } catch (error) {
+    return {
+      success: false,
+      source: "mock",
+      data: { model },
+      message: toHumanReadableError("registerModel", error),
+    }
   }
 }
 
@@ -296,10 +347,7 @@ export const fileCase = async (
   options: ProgramFetchOptions = {}
 ): Promise<ClientResult<{ caseRecord: PublicKey }>> => {
   const ctx = getProgram(options)
-  const wallet = options.wallet
-  if (!wallet) {
-    throw new Error("Wallet is required for fileCase")
-  }
+  const wallet = requireWallet(options.wallet, "fileCase")
 
   const [registry] = getRegistryPda()
   const [caseRecord] = getCaseRecordPda(input.caseId)
@@ -315,30 +363,39 @@ export const fileCase = async (
 
   const program = asProgramLike(ctx.program)
 
-  const signature = await program.methods
-    .fileCase(
-      new BN(typeof input.caseId === "bigint" ? input.caseId.toString() : input.caseId),
-      input.title,
-      input.summary,
-      input.requiredJurors,
-      new BN(input.votingWindowSeconds),
-      input.excludedProviderForAi || wallet.publicKey,
-      toHash32(input.excludedModelFamilyHashForAi)
-    )
-    .accounts({
-      complainant: wallet.publicKey,
-      registry,
-      aiModel,
-      caseRecord,
-      systemProgram: web3.SystemProgram.programId,
-    })
-    .rpc()
+  try {
+    const signature = await program.methods
+      .fileCase(
+        new BN(typeof input.caseId === "bigint" ? input.caseId.toString() : input.caseId),
+        input.title,
+        input.summary,
+        input.requiredJurors,
+        new BN(input.votingWindowSeconds),
+        input.excludedProviderForAi || wallet.publicKey,
+        toHash32(input.excludedModelFamilyHashForAi)
+      )
+      .accounts({
+        complainant: wallet.publicKey,
+        registry,
+        aiModel,
+        caseRecord,
+        systemProgram: web3.SystemProgram.programId,
+      })
+      .rpc()
 
-  return {
-    success: true,
-    source: "anchor",
-    signature,
-    data: { caseRecord },
+    return {
+      success: true,
+      source: "anchor",
+      signature,
+      data: { caseRecord },
+    }
+  } catch (error) {
+    return {
+      success: false,
+      source: "mock",
+      data: { caseRecord },
+      message: toHumanReadableError("fileCase", error),
+    }
   }
 }
 
@@ -347,10 +404,7 @@ export const submitEvidence = async (
   options: ProgramFetchOptions = {}
 ): Promise<ClientResult<{ evidenceRecord: PublicKey }>> => {
   const ctx = getProgram(options)
-  const wallet = options.wallet
-  if (!wallet) {
-    throw new Error("Wallet is required for submitEvidence")
-  }
+  const wallet = requireWallet(options.wallet, "submitEvidence")
 
   const [caseRecord] = getCaseRecordPda(input.caseId)
   const [evidenceRecord] = getEvidenceRecordPda(caseRecord, input.evidenceIndex)
@@ -365,26 +419,35 @@ export const submitEvidence = async (
 
   const program = asProgramLike(ctx.program)
 
-  const signature = await program.methods
-    .submitEvidence(
-      input.evidenceIndex,
-      input.evidenceCid,
-      input.mimeType,
-      input.description
-    )
-    .accounts({
-      submitter: wallet.publicKey,
-      caseRecord,
-      evidenceRecord,
-      systemProgram: web3.SystemProgram.programId,
-    })
-    .rpc()
+  try {
+    const signature = await program.methods
+      .submitEvidence(
+        input.evidenceIndex,
+        input.evidenceCid,
+        input.mimeType,
+        input.description
+      )
+      .accounts({
+        submitter: wallet.publicKey,
+        caseRecord,
+        evidenceRecord,
+        systemProgram: web3.SystemProgram.programId,
+      })
+      .rpc()
 
-  return {
-    success: true,
-    source: "anchor",
-    signature,
-    data: { evidenceRecord },
+    return {
+      success: true,
+      source: "anchor",
+      signature,
+      data: { evidenceRecord },
+    }
+  } catch (error) {
+    return {
+      success: false,
+      source: "mock",
+      data: { evidenceRecord },
+      message: toHumanReadableError("submitEvidence", error),
+    }
   }
 }
 
@@ -393,10 +456,7 @@ export const stakeAsJuror = async (
   options: ProgramFetchOptions = {}
 ): Promise<ClientResult<{ jurorProfile: PublicKey }>> => {
   const ctx = getProgram(options)
-  const wallet = options.wallet
-  if (!wallet) {
-    throw new Error("Wallet is required for stakeAsJuror")
-  }
+  const wallet = requireWallet(options.wallet, "stakeAsJuror")
 
   const [jurorProfile] = getJurorProfilePda(wallet.publicKey)
 
@@ -410,20 +470,29 @@ export const stakeAsJuror = async (
 
   const program = asProgramLike(ctx.program)
 
-  const signature = await program.methods
-    .stakeAsJuror(new BN(amountLamports))
-    .accounts({
-      juror: wallet.publicKey,
-      jurorProfile,
-      systemProgram: web3.SystemProgram.programId,
-    })
-    .rpc()
+  try {
+    const signature = await program.methods
+      .stakeAsJuror(new BN(amountLamports))
+      .accounts({
+        juror: wallet.publicKey,
+        jurorProfile,
+        systemProgram: web3.SystemProgram.programId,
+      })
+      .rpc()
 
-  return {
-    success: true,
-    source: "anchor",
-    signature,
-    data: { jurorProfile },
+    return {
+      success: true,
+      source: "anchor",
+      signature,
+      data: { jurorProfile },
+    }
+  } catch (error) {
+    return {
+      success: false,
+      source: "mock",
+      data: { jurorProfile },
+      message: toHumanReadableError("stakeAsJuror", error),
+    }
   }
 }
 
@@ -432,10 +501,7 @@ export const castVote = async (
   options: ProgramFetchOptions = {}
 ): Promise<ClientResult<{ voteRecord: PublicKey }>> => {
   const ctx = getProgram(options)
-  const wallet = options.wallet
-  if (!wallet) {
-    throw new Error("Wallet is required for castVote")
-  }
+  const wallet = requireWallet(options.wallet, "castVote")
 
   const [caseRecord] = getCaseRecordPda(input.caseId)
   const [jurorProfile] = getJurorProfilePda(wallet.publicKey)
@@ -452,22 +518,31 @@ export const castVote = async (
   const side = input.side === "plaintiff" ? { plaintiff: {} } : { defendant: {} }
   const program = asProgramLike(ctx.program)
 
-  const signature = await program.methods
-    .castVote(side, toHash32(input.reasonHash))
-    .accounts({
-      voter: wallet.publicKey,
-      caseRecord,
-      jurorProfile,
-      voteRecord,
-      systemProgram: web3.SystemProgram.programId,
-    })
-    .rpc()
+  try {
+    const signature = await program.methods
+      .castVote(side, toHash32(input.reasonHash))
+      .accounts({
+        voter: wallet.publicKey,
+        caseRecord,
+        jurorProfile,
+        voteRecord,
+        systemProgram: web3.SystemProgram.programId,
+      })
+      .rpc()
 
-  return {
-    success: true,
-    source: "anchor",
-    signature,
-    data: { voteRecord },
+    return {
+      success: true,
+      source: "anchor",
+      signature,
+      data: { voteRecord },
+    }
+  } catch (error) {
+    return {
+      success: false,
+      source: "mock",
+      data: { voteRecord },
+      message: toHumanReadableError("castVote", error),
+    }
   }
 }
 
@@ -476,17 +551,13 @@ export const enforceVerdict = async (
   options: ProgramFetchOptions = {}
 ): Promise<ClientResult<{ verdictLedger: PublicKey }>> => {
   const ctx = getProgram(options)
-  const wallet = options.wallet
-  if (!wallet) {
-    throw new Error("Wallet is required for enforceVerdict")
-  }
+  const wallet = requireWallet(options.wallet, "enforceVerdict")
 
   const [caseRecord] = getCaseRecordPda(input.caseId)
   const [aiDecision] = getAiDecisionPda(caseRecord)
   const [verdictLedger] = getVerdictLedgerPda(caseRecord)
 
-  const onChainCase = await ctx.provider.connection.getAccountInfo(caseRecord)
-  const aiModel = onChainCase ? CHAINJUSTICE_PROGRAM_ID : CHAINJUSTICE_PROGRAM_ID
+  const aiModel = input.aiModel || wallet.publicKey
 
   if (!ctx.program) {
     return {
@@ -498,24 +569,33 @@ export const enforceVerdict = async (
 
   const program = asProgramLike(ctx.program)
 
-  const signature = await program.methods
-    .enforceVerdict()
-    .accounts({
-      enforcer: wallet.publicKey,
-      complainant: input.complainant,
-      caseRecord,
-      aiModel,
-      aiDecisionMetadata: aiDecision,
-      verdictLedger,
-      systemProgram: web3.SystemProgram.programId,
-    })
-    .rpc()
+  try {
+    const signature = await program.methods
+      .enforceVerdict()
+      .accounts({
+        enforcer: wallet.publicKey,
+        complainant: input.complainant,
+        caseRecord,
+        aiModel,
+        aiDecisionMetadata: aiDecision,
+        verdictLedger,
+        systemProgram: web3.SystemProgram.programId,
+      })
+      .rpc()
 
-  return {
-    success: true,
-    source: "anchor",
-    signature,
-    data: { verdictLedger },
+    return {
+      success: true,
+      source: "anchor",
+      signature,
+      data: { verdictLedger },
+    }
+  } catch (error) {
+    return {
+      success: false,
+      source: "mock",
+      data: { verdictLedger },
+      message: toHumanReadableError("enforceVerdict", error),
+    }
   }
 }
 
@@ -524,10 +604,7 @@ export const depositInsurance = async (
   options: ProgramFetchOptions = {}
 ): Promise<ClientResult<{ model: PublicKey }>> => {
   const ctx = getProgram(options)
-  const wallet = options.wallet
-  if (!wallet) {
-    throw new Error("Wallet is required for depositInsurance")
-  }
+  const wallet = requireWallet(options.wallet, "depositInsurance")
 
   const [model] = getAiModelPda(input.modelProvider)
 
@@ -541,20 +618,29 @@ export const depositInsurance = async (
 
   const program = asProgramLike(ctx.program)
 
-  const signature = await program.methods
-    .depositInsurance(new BN(input.amountLamports))
-    .accounts({
-      depositor: wallet.publicKey,
-      aiModel: model,
-      systemProgram: web3.SystemProgram.programId,
-    })
-    .rpc()
+  try {
+    const signature = await program.methods
+      .depositInsurance(new BN(input.amountLamports))
+      .accounts({
+        depositor: wallet.publicKey,
+        aiModel: model,
+        systemProgram: web3.SystemProgram.programId,
+      })
+      .rpc()
 
-  return {
-    success: true,
-    source: "anchor",
-    signature,
-    data: { model },
+    return {
+      success: true,
+      source: "anchor",
+      signature,
+      data: { model },
+    }
+  } catch (error) {
+    return {
+      success: false,
+      source: "mock",
+      data: { model },
+      message: toHumanReadableError("depositInsurance", error),
+    }
   }
 }
 
@@ -635,9 +721,11 @@ export const fetchVerdictLedger = async (
     }
   } catch {
     return {
-      success: true,
+      success: false,
       source: "mock",
       data: mockVerdictLedger,
+      message:
+        "Could not fetch on-chain verdict ledger. Showing demo fallback data so the UI remains usable.",
     }
   }
 }

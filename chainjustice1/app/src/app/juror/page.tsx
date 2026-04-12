@@ -9,6 +9,7 @@ import PageHeader from "@/components/page-header"
 import GlassCard from "@/components/glass-card"
 import StatCard from "@/components/stat-card"
 import StatusBadge from "@/components/status-badge"
+import { ADVISORY_DISCLAIMER } from "@/lib/constants"
 import {
   Award,
   Coins,
@@ -180,13 +181,18 @@ export default function JurorPage() {
             <div className="flex items-start gap-3">
               <Gavel className="mt-0.5 h-5 w-5 text-violet" />
               <p className="text-xs text-muted-foreground">
-                AI briefs may inform your review, but they do not decide outcomes. Jurors hold final authority.
+                {ADVISORY_DISCLAIMER} Jurors hold final authority.
               </p>
             </div>
           </GlassCard>
         </div>
 
         <div className="space-y-4 lg:col-span-2">
+          {assignedCases.length === 0 && (
+            <GlassCard className="p-8 text-center">
+              <p className="text-sm text-muted-foreground">No juror assignments are available right now.</p>
+            </GlassCard>
+          )}
           {assignedCases.map((item) => (
             <GlassCard key={item.id} className="p-5" hover>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -225,7 +231,7 @@ export default function JurorPage() {
                         disabled={voteState.status === "loading"}
                         onClick={() => handleVote(item.id, "plaintiff")}
                       >
-                        <ThumbsUp className="mr-1 h-3.5 w-3.5" />Plaintiff
+                        <ThumbsUp className="mr-1 h-3.5 w-3.5" />Final Juror Vote
                       </Button>
                     </div>
                   )}

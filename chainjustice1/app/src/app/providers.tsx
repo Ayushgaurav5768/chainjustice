@@ -1,6 +1,6 @@
 'use client';
 
-import { ComponentType, ReactNode, useMemo } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { clusterApiUrl } from '@solana/web3.js';
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import {
@@ -19,11 +19,21 @@ import { appConfig, resolveRpcEndpoint } from '@/lib/config';
 import '@solana/wallet-adapter-react-ui/styles.css';
 
 const TypedConnectionProvider =
-  ConnectionProvider as unknown as ComponentType<{ endpoint: string; children?: ReactNode }>;
-const TypedWalletProvider =
-  WalletProvider as unknown as ComponentType<{ wallets: unknown[]; autoConnect?: boolean; children?: ReactNode }>;
+  ConnectionProvider as unknown as React.ComponentType<{
+    endpoint: string;
+    children: ReactNode;
+  }>;
+
+const TypedWalletProvider = WalletProvider as unknown as React.ComponentType<{
+  wallets: unknown[];
+  autoConnect?: boolean;
+  children: ReactNode;
+}>;
+
 const TypedWalletModalProvider =
-  WalletModalProvider as unknown as ComponentType<{ children?: ReactNode }>;
+  WalletModalProvider as unknown as React.ComponentType<{
+    children: ReactNode;
+  }>;
 
 export function Providers({ children }: { children: ReactNode }) {
   const network =

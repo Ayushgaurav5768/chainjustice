@@ -7,6 +7,7 @@ import PageHeader from "@/components/page-header"
 import GlassCard from "@/components/glass-card"
 import Input from "@/components/ui/input"
 import StatusBadge from "@/components/status-badge"
+import { ADVISORY_DISCLAIMER } from "@/lib/constants"
 import { BookOpenText, Scale, Search } from "lucide-react"
 
 type Precedent = {
@@ -91,6 +92,12 @@ export default function PrecedentsPage() {
         description="Search prior rulings to compare fact patterns, standards, and outcomes."
       />
 
+      <GlassCard className="border-cyan/30 bg-cyan/5 p-4">
+        <p className="text-xs text-muted-foreground">
+          Human jurors make final decisions. {ADVISORY_DISCLAIMER}
+        </p>
+      </GlassCard>
+
       <GlassCard className="p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -144,6 +151,7 @@ export default function PrecedentsPage() {
       {filtered.length === 0 && (
         <GlassCard className="p-8 text-center">
           <p className="text-sm text-muted-foreground">No precedents found for your search.</p>
+          <p className="mt-2 text-xs text-muted-foreground">Try case IDs like CJ-2024-042 or broad categories.</p>
         </GlassCard>
       )}
     </div>

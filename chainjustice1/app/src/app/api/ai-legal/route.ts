@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { z } from 'zod';
 import type { ApiRequestBody } from '@/lib/types';
 import { ADVISORY_DISCLAIMER } from '@/lib/constants';
 import { appConfig } from '@/lib/config';
+import { apiError } from '@/lib/api-response';
 import { mockCases, mockModels, mockVerdictLedger } from '@/lib/mock-data';
 
 type ActionMode =
@@ -69,8 +71,77 @@ type AiCouncilEnvelope = {
   data: AiCouncilResponseData;
   model: string;
   fallbackMode: boolean;
+  source: 'mock' | 'live';
   advisory: typeof ADVISORY_DISCLAIMER;
 };
+
+const ActionModeSchema = z.enum([
+  'case_analysis',
+  'evidence_analysis',
+  'juror_guidance',
+  'precedent_search',
+  'model_risk_analysis',
+]);
+
+const DisagreementMeterSchema = z.enum(['low', 'medium', 'high']);
+
+const CouncilBriefSchema = z.object({
+  label: z.literal('AI Case Brief'),
+  analysisType: z.literal('Non-Binding AI Analysis'),
+  thesis: z.string(),
+  keyArguments: z.array(z.string()),
+  citedEvidence: z.array(z.string()),
+  legalTheory: z.string(),
+  vulnerabilities: z.array(z.string()),
+  confidence: z.number(),
+  uncertaintyNotes: z.array(z.string()),
+});
+
+const NeutralSynthesisSchema = z.object({
+  label: z.literal('AI Case Brief'),
+  analysisType: z.literal('Non-Binding AI Analysis'),
+  synthesisSummary: z.string(),
+  strongestProsecutionPoints: z.array(z.string()),
+  strongestDefensePoints: z.array(z.string()),
+  unresolvedQuestions: z.array(z.string()),
+  jurorGuidance: z.array(z.string()),
+  confidence: z.number(),
+  uncertaintyNotes: z.array(z.string()),
+});
+
+const ConflictFirewallSchema = z.object({
+  accusedProvider: z.string(),
+  assistingModelFamily: z.string(),
+  conflictDetected: z.boolean(),
+  routedProvider: z.string().nullable(),
+  fallbackModeFlagged: z.boolean(),
+  notes: z.array(z.string()),
+});
+
+const AiCouncilResponseSchema = z.object({
+  schemaVersion: z.literal('1.0.0'),
+  label: z.literal('AI Case Brief'),
+  analysisType: z.literal('Non-Binding AI Analysis'),
+  actionMode: ActionModeSchema,
+  advisoryOnly: z.literal(true),
+  humanAuthority: z.literal('Human jurors remain final authority'),
+  prosecutionBrief: CouncilBriefSchema,
+  defenseBrief: CouncilBriefSchema,
+  neutralSynthesis: NeutralSynthesisSchema,
+  evidenceGaps: z.array(z.string()),
+  contradictions: z.array(z.string()),
+  confidenceAndUncertaintyNotes: z.array(z.string()),
+  recommendedQuestionsForJurors: z.array(z.string()),
+  aiDisagreementMeter: DisagreementMeterSchema,
+  conflictFirewall: ConflictFirewallSchema,
+  advisoryDisclaimer: z.literal(ADVISORY_DISCLAIMER),
+});
+
+const RequestSchema = z.object({
+  action: z.string().min(1),
+  data: z.record(z.string(), z.unknown()).optional(),
+  payload: z.record(z.string(), z.unknown()).optional(),
+});
 
 const resolveAction = (action: string): string => {
   const aliases: Record<string, string> = {
@@ -382,7 +453,15 @@ const generateAiResponse = async (
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as ApiRequestBody;
+    const rawBody = (await request.json()) as ApiRequestBody;
+    const parsedBody = RequestSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      return apiError(400, 'BAD_REQUEST', 'Invalid request payload.', {
+        issues: parsedBody.error.issues.map((issue) => issue.message),
+      });
+    }
+
+    const body = parsedBody.data;
     const action = resolveAction(body.action);
     const data = (body.data ?? body.payload ?? {}) as Record<string, unknown>;
 
@@ -447,8 +526,11 @@ export async function POST(request: NextRequest) {
         ? { data: mockResponse, fallbackMode: true }
         : await generateAiResponse(prompt, mockResponse);
 
+      const parsedCouncil = AiCouncilResponseSchema.safeParse(councilData);
+      const normalizedCouncil = parsedCouncil.success ? parsedCouncil.data : mockResponse;
+
       const merged: AiCouncilResponseData = {
-        ...councilData,
+        ...normalizedCouncil,
         advisoryOnly: true,
         humanAuthority: 'Human jurors remain final authority',
         label: 'AI Case Brief',
@@ -456,7 +538,7 @@ export async function POST(request: NextRequest) {
         advisoryDisclaimer: ADVISORY_DISCLAIMER,
         conflictFirewall: {
           ...mockResponse.conflictFirewall,
-          ...councilData.conflictFirewall,
+          ...normalizedCouncil.conflictFirewall,
         },
       };
 
@@ -464,7 +546,11 @@ export async function POST(request: NextRequest) {
         success: true,
         data: merged,
         model: merged.conflictFirewall.routedProvider || 'gemini-2.0-flash',
-        fallbackMode: fallbackMode || merged.conflictFirewall.fallbackModeFlagged,
+        fallbackMode:
+          fallbackMode ||
+          merged.conflictFirewall.fallbackModeFlagged ||
+          !parsedCouncil.success,
+        source: fallbackMode || !parsedCouncil.success ? 'mock' : 'live',
         advisory: ADVISORY_DISCLAIMER,
       };
 
@@ -637,10 +723,9 @@ Respond ONLY with valid JSON.`;
         break;
 
       default:
-        return NextResponse.json(
-          { error: 'Unknown action.' },
-          { status: 400 }
-        );
+        return apiError(400, 'BAD_REQUEST', 'Unknown action.', {
+          action: body.action,
+        });
     }
 
     const { data: aiData, fallbackMode } = await generateAiResponse(prompt, fallback);
@@ -656,19 +741,10 @@ Respond ONLY with valid JSON.`;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'AI analysis failed';
     console.error('AI Legal API Error:', error);
-    return NextResponse.json(
-      { 
-        success: false,
-        error: errorMessage,
-        fallback: {
-          label: 'AI Case Brief',
-          analysisType: 'Non-Binding AI Analysis',
-          advisoryOnly: true,
-          advisoryDisclaimer: ADVISORY_DISCLAIMER,
-          summary: 'AI analysis temporarily unavailable. Please try again later.',
-        }
-      },
-      { status: 500 }
-    );
+    return apiError(500, 'INTERNAL_ERROR', 'AI analysis temporarily unavailable.', {
+      reason: errorMessage,
+      advisoryOnly: true,
+      advisoryDisclaimer: ADVISORY_DISCLAIMER,
+    });
   }
 }

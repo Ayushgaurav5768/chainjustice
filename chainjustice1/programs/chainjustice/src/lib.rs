@@ -89,6 +89,7 @@ pub mod chainjustice {
     /// Adds SOL insurance liquidity to a model's insurance pool.
     pub fn deposit_insurance(ctx: Context<DepositInsurance>, amount_lamports: u64) -> Result<()> {
         require!(amount_lamports > 0, ChainJusticeError::InvalidAmount);
+        require!(ctx.accounts.ai_model.is_active, ChainJusticeError::ModelInactive);
 
         transfer_lamports(
             &ctx.accounts.depositor.to_account_info(),
@@ -108,7 +109,7 @@ pub mod chainjustice {
     }
 
     /// Opens a new case against a model.
-    /// Case seeds use ["case", case_id_le_bytes], and case_id must equal registry.next_case_id.
+    /// Case seeds use ["case_record", case_id_le_bytes], and case_id must equal registry.next_case_id.
     pub fn file_case(
         ctx: Context<FileCase>,
         case_id: u64,
@@ -129,6 +130,7 @@ pub mod chainjustice {
 
         let registry = &mut ctx.accounts.registry;
         require!(case_id == registry.next_case_id, ChainJusticeError::InvalidCaseId);
+        require!(ctx.accounts.ai_model.is_active, ChainJusticeError::ModelInactive);
 
         let now = Clock::get()?.unix_timestamp;
         let case = &mut ctx.accounts.case_record;
@@ -184,6 +186,7 @@ pub mod chainjustice {
 
         let case = &mut ctx.accounts.case_record;
         require!(case.status == CaseStatus::Open, ChainJusticeError::CaseNotOpen);
+        require!(case.complainant == ctx.accounts.submitter.key(), ChainJusticeError::Unauthorized);
         require!(evidence_index == case.evidence_count, ChainJusticeError::InvalidEvidenceIndex);
 
         let now = Clock::get()?.unix_timestamp;
@@ -323,6 +326,7 @@ pub mod chainjustice {
         require!(case.selected_jurors.contains(&ctx.accounts.voter.key()), ChainJusticeError::JurorNotSelected);
         require!(juror.authority == ctx.accounts.voter.key(), ChainJusticeError::Unauthorized);
         require!(juror.stake_lamports > 0, ChainJusticeError::InsufficientStake);
+        require!(Clock::get()?.unix_timestamp <= case.voting_deadline, ChainJusticeError::VotingWindowClosed);
 
         let vote = &mut ctx.accounts.vote_record;
         vote.case = case.key();
@@ -358,6 +362,8 @@ pub mod chainjustice {
         let case = &mut ctx.accounts.case_record;
 
         require!(case.status == CaseStatus::UnderReview, ChainJusticeError::CaseNotOpen);
+        require!(case.complainant == ctx.accounts.complainant.key(), ChainJusticeError::Unauthorized);
+        require!(case.defendant_model == ctx.accounts.ai_model.key(), ChainJusticeError::InvalidState);
 
         let total_votes = case
             .votes_for_plaintiff
@@ -451,6 +457,7 @@ pub mod chainjustice {
         require!(delta != 0, ChainJusticeError::InvalidInput);
         require!(reason_code > 0, ChainJusticeError::InvalidInput);
         require!(ctx.accounts.case_record.status == CaseStatus::Closed, ChainJusticeError::CaseNotClosed);
+        require!(ctx.accounts.case_record.defendant_model == ctx.accounts.ai_model.key(), ChainJusticeError::InvalidState);
 
         let model = &mut ctx.accounts.ai_model;
         model.trust_score = clamp_trust(model.trust_score.saturating_add(delta));
@@ -927,6 +934,10 @@ pub enum ChainJusticeError {
     NotEnoughVotes,
     #[msg("Insurance pool is insufficient for payout")]
     InsufficientInsurancePool,
+    #[msg("Target model is not active")]
+    ModelInactive,
+    #[msg("Voting window has closed")]
+    VotingWindowClosed,
     #[msg("Duplicate juror in selection")]
     DuplicateSelection,
     #[msg("Invalid program state")]

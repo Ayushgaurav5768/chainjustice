@@ -15,7 +15,9 @@ import {
   Database,
   FileCheck,
   Blocks,
+  Gavel,
 } from "lucide-react"
+import { ADVISORY_DISCLAIMER } from "@/lib/constants"
 
 const stats = [
   { label: "Cases Filed", value: "2,847" },
@@ -113,6 +115,14 @@ export default function LandingPage() {
               AI argues both sides. Humans decide. Blockchain remembers.
             </p>
 
+            <div className="mx-auto mt-6 max-w-2xl rounded-lg border border-violet/30 bg-violet/10 px-4 py-3 text-left text-xs text-muted-foreground">
+              <p className="inline-flex items-center gap-2 font-semibold text-violet">
+                <Gavel className="h-3.5 w-3.5" />
+                Human jurors make final decisions.
+              </p>
+              <p className="mt-1">{ADVISORY_DISCLAIMER}</p>
+            </div>
+
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <WalletButton className="!w-full sm:!w-auto" />
               <Button
@@ -132,7 +142,7 @@ export default function LandingPage() {
                 asChild
               >
                 <Link href="/juror">
-                  Become a Juror
+                  Human Juror Portal
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
@@ -252,7 +262,7 @@ export default function LandingPage() {
                   className="w-full border-border hover:bg-secondary sm:w-auto"
                   asChild
                 >
-                  <Link href="/precedents">Research Precedents</Link>
+                  <Link href="/verdict-ledger">Open Verdict Ledger</Link>
                 </Button>
               </div>
             </div>

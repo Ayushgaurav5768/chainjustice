@@ -82,3 +82,45 @@ export interface VerdictLedgerEntry {
   recordedAt: string
   txSignature: string
 }
+
+export type RiskLevel = "low" | "medium" | "high" | "critical"
+
+export interface ModelAccountabilityRecord {
+  modelId: string
+  modelName: string
+  provider: string
+  category: string
+  trustScore: number
+  trustTrend: "up" | "down" | "flat"
+  insurancePoolBalance: string
+  caseCount: number
+  upheldComplaints: number
+  dismissedComplaints: number
+  pendingCases: number
+  lastVerdict: "plaintiff" | "defendant" | "split"
+  riskBadge: RiskLevel
+  trustHistory: {
+    label: string
+    score: number
+  }[]
+  timeline: {
+    caseId: string
+    verdict: "plaintiff" | "defendant" | "split"
+    trustDelta: number
+    recordedAt: string
+  }[]
+  precedentLinks: string[]
+  humanOverrideScore?: number
+  aiDisagreementHistory?: {
+    label: string
+    value: number
+  }[]
+  evidenceCredibilitySummary?: {
+    averageScore: number
+    weakEvidenceShare: number
+  }
+  recurringHarmPatterns?: {
+    pattern: string
+    count: number
+  }[]
+}
