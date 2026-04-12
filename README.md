@@ -257,6 +257,6 @@ ChainJustice is a hackathon MVP. The AI Council output is **advisory only and ha
 
 **⚖️ ChainJustice — Because AI needs accountability, not just intelligence.**
 
-[Live Demo](https://chainjustice.vercel.app) • [GitHub](https://github.com/Ayushgaurav5768/chainjustice) • [Team: 404 Shinobi]
+[Live Demo](https://chainjustice-nu3o.vercel.app/) • [GitHub](https://github.com/Ayushgaurav5768/chainjustice) • [Team: 404 Shinobi]
 
 </div>
